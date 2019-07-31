@@ -27,7 +27,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -72,7 +71,6 @@ import eu.europa.esig.dss.pdf.PdfDssDict;
 import eu.europa.esig.dss.pdf.PdfSigDict;
 import eu.europa.esig.dss.pdf.PdfSignatureInfo;
 import eu.europa.esig.dss.pdf.PdfSignatureOrDocTimestampInfo;
-import eu.europa.esig.dss.pdf.PdfSignatureOrDocTimestampInfoComparator;
 import eu.europa.esig.dss.pdf.openpdf.visible.ITextSignatureDrawer;
 import eu.europa.esig.dss.pdf.openpdf.visible.ITextSignatureDrawerFactory;
 import eu.europa.esig.dss.utils.Utils;
@@ -291,18 +289,16 @@ class ITextPDFSignatureService extends AbstractPDFSignatureService {
 					final String subFilter = signatureDictionary.getSubFilter();
 					if (PAdESConstants.TIMESTAMP_DEFAULT_SUBFILTER.equals(subFilter)) {
 
-						boolean isArchiveTimestamp = false;
+						PdfDssDict timestampedDssDictionary = null;
 
 						// LT or LTA
 						if (dssDictionary != null) {
 							// check is DSS dictionary already exist
-							if (isDSSDictionaryPresentInPreviousRevision(getOriginalBytes(byteRange, signedContent))) {
-								isArchiveTimestamp = true;
-							}
+							timestampedDssDictionary = getDSSDictionaryPresentInPreviousRevision(getOriginalBytes(byteRange, signedContent));
 						}
 
-						result.add(new PdfDocTimestampInfo(validationCertPool, signatureDictionary, dssDictionary, cms,
-								signedContent, signatureCoversWholeDocument, isArchiveTimestamp));
+						result.add(new PdfDocTimestampInfo(validationCertPool, signatureDictionary, timestampedDssDictionary, cms, signedContent,
+								signatureCoversWholeDocument));
 					} else {
 						result.add(new PdfSignatureInfo(validationCertPool, signatureDictionary, dssDictionary, cms,
 								signedContent, signatureCoversWholeDocument));
@@ -313,7 +309,6 @@ class ITextPDFSignatureService extends AbstractPDFSignatureService {
 				}
 			}
 
-			Collections.sort(result, new PdfSignatureOrDocTimestampInfoComparator());
 			linkSignatures(result);
 
 		} catch (IOException e) {
@@ -327,12 +322,12 @@ class ITextPDFSignatureService extends AbstractPDFSignatureService {
 		return PdfDssDict.extract(currentCatalog);
 	}
 
-	private boolean isDSSDictionaryPresentInPreviousRevision(byte[] originalBytes) {
+	private PdfDssDict getDSSDictionaryPresentInPreviousRevision(byte[] originalBytes) {
 		try (PdfReader reader = new PdfReader(originalBytes)) {
-			return getDSSDictionary(reader) != null;
+			return getDSSDictionary(reader);
 		} catch (Exception e) {
 			LOG.warn("Cannot check in previous revisions if DSS dictionary already exist : " + e.getMessage(), e);
-			return false;
+			return null;
 		}
 	}
 

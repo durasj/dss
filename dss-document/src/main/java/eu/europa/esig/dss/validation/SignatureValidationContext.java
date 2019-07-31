@@ -202,9 +202,6 @@ public class SignatureValidationContext implements ValidationContext {
 		Token issuerCertificateToken = token;
 		do {
 			chain.add(issuerCertificateToken);
-			if (isTrusted(issuerCertificateToken)) {
-				break;
-			}
 
 			issuerCertificateToken = validationCertificatePool.getIssuer(issuerCertificateToken);
 
@@ -492,7 +489,7 @@ public class SignatureValidationContext implements ValidationContext {
 
 		if (revocations.isEmpty() || isRevocationDataRefreshNeeded(certToken, revocations)) {
 
-			if (checkRevocationForUntrustedChains || isTrustedChain(certChain)) {
+			if (checkRevocationForUntrustedChains || isInTrustedChain(certChain)) {
 
 				// Online resources (OCSP and CRL if OCSP doesn't reply)
 				OCSPAndCRLCertificateVerifier onlineVerifier = null;
@@ -520,9 +517,13 @@ public class SignatureValidationContext implements ValidationContext {
 		return revocations;
 	}
 
-	private boolean isTrustedChain(List<Token> certChain) {
-		Token lastToken = certChain.get(certChain.size() - 1);
-		return isTrusted(lastToken);
+	private boolean isInTrustedChain(List<Token> certChain) {
+		for (Token token : certChain) {
+			if (isTrusted(token)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	@SuppressWarnings({ "rawtypes", "unchecked" })
@@ -647,7 +648,7 @@ public class SignatureValidationContext implements ValidationContext {
 		if (lastUsageDate != null) {
 			boolean foundUpdatedRevocationData = false;
 			for (RevocationToken revocationToken : revocations) {
-				if ((lastUsageDate.compareTo(revocationToken.getProductionDate()) <= 0) && (CRLReasonEnum.certificateHold != revocationToken.getReason())) {
+				if ((lastUsageDate.compareTo(revocationToken.getProductionDate()) < 0) && (CRLReasonEnum.certificateHold != revocationToken.getReason())) {
 					foundUpdatedRevocationData = true;
 					break;
 				}

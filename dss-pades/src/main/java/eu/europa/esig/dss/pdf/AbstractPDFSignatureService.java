@@ -21,6 +21,7 @@
 package eu.europa.esig.dss.pdf;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -154,6 +155,9 @@ public abstract class AbstractPDFSignatureService implements PDFSignatureService
 	 * revision number and to know if a TSP is over the DSS dictionary
 	 */
 	protected void linkSignatures(List<PdfSignatureOrDocTimestampInfo> signatures) {
+
+		Collections.sort(signatures, new PdfSignatureOrDocTimestampInfoComparator());
+
 		List<PdfSignatureOrDocTimestampInfo> previousList = new ArrayList<PdfSignatureOrDocTimestampInfo>();
 		for (PdfSignatureOrDocTimestampInfo sig : signatures) {
 			if (Utils.isCollectionNotEmpty(previousList)) {
@@ -175,7 +179,7 @@ public abstract class AbstractPDFSignatureService implements PDFSignatureService
 	protected void validateByteRange(int[] byteRange) {
 
 		if (byteRange == null || byteRange.length != 4) {
-			throw new DSSException("Incorrect BytRange size");
+			throw new DSSException("Incorrect ByteRange size");
 		}
 
 		final int a = byteRange[0];
@@ -184,7 +188,7 @@ public abstract class AbstractPDFSignatureService implements PDFSignatureService
 		final int d = byteRange[3];
 
 		if (a != 0) {
-			throw new DSSException("The BytRange must cover start of file");
+			throw new DSSException("The ByteRange must cover start of file");
 		}
 		if (b <= 0) {
 			throw new DSSException("The first hash part doesn't cover anything");
@@ -211,18 +215,27 @@ public abstract class AbstractPDFSignatureService implements PDFSignatureService
 
 			Map<Long, CertificateToken> storedCertificates = callback.getStoredCertificates();
 			for (Entry<Long, CertificateToken> certEntry : storedCertificates.entrySet()) {
-				result.put(getTokenDigest(certEntry.getValue()), certEntry.getKey());
+				String tokenKey = getTokenDigest(certEntry.getValue());
+				if (!result.containsKey(tokenKey)) { // keeps the really first occurrence
+					result.put(tokenKey, certEntry.getKey());
+				}
 			}
 
 			Map<Long, BasicOCSPResp> storedOcspResps = callback.getStoredOcspResps();
 			for (Entry<Long, BasicOCSPResp> ocspEntry : storedOcspResps.entrySet()) {
 				final OCSPResp ocspResp = DSSRevocationUtils.fromBasicToResp(ocspEntry.getValue());
-				result.put(Utils.toBase64(DSSUtils.digest(DigestAlgorithm.SHA256, DSSRevocationUtils.getEncoded(ocspResp))), ocspEntry.getKey());
+				String tokenKey = Utils.toBase64(DSSUtils.digest(DigestAlgorithm.SHA256, DSSRevocationUtils.getEncoded(ocspResp)));
+				if (!result.containsKey(tokenKey)) { // keeps the really first occurrence
+					result.put(tokenKey, ocspEntry.getKey());
+				}
 			}
 
 			Map<Long, byte[]> storedCrls = callback.getStoredCrls();
 			for (Entry<Long, byte[]> crlEntry : storedCrls.entrySet()) {
-				result.put(Utils.toBase64(DSSUtils.digest(DigestAlgorithm.SHA256, crlEntry.getValue())), crlEntry.getKey());
+				String tokenKey = Utils.toBase64(DSSUtils.digest(DigestAlgorithm.SHA256, crlEntry.getValue()));
+				if (!result.containsKey(tokenKey)) { // keeps the really first occurrence
+					result.put(tokenKey, crlEntry.getKey());
+				}
 			}
 		}
 		return result;
